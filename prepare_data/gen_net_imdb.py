@@ -1,112 +1,94 @@
-import numpy as np
-import numpy.random as npr
-size = 48
-net = str(size)
-with open('%s/pos_%s.txt'%(net, size), 'r') as f:
-    pos = f.readlines()
-
-with open('%s/neg_%s.txt'%(net, size), 'r') as f:
-    neg = f.readlines()
-
-with open('%s/part_%s.txt'%(net, size), 'r') as f:
-    part = f.readlines()
-    
-def view_bar(num, total):
-    rate = float(num) / total
-    rate_num = int(rate * 100)+1
-    r = '\r[%s%s]%d%%' % ("#"*rate_num, " "*(100-rate_num), rate_num, )
-    sys.stdout.write(r)
-    sys.stdout.flush()
-    
 import sys
 import cv2
 import os
 import numpy as np
-
-cls_list = []
-print '\n'+'positive-48'
-cur_ = 0
-sum_ = len(pos2)
-for line in pos2:
-    view_bar(cur_,sum_)
-    cur_ += 1
-    words = line.split()
-    image_file_name = '../48net/'+words[0]+'.jpg'
-    im = cv2.imread(image_file_name)
-    h,w,ch = im.shape
-    if h!=48 or w!=48:
-        im = cv2.resize(im,(48,48))
-    im = np.swapaxes(im, 0, 2)
-    im = (im - 127.5)/127.5
-    label    = 1
-    roi      = [-1,-1,-1,-1]
-    pts	     = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
-    cls_list.append([im,label,roi])
-print '\n'+'negative-48'
-cur_ = 0
-neg_keep = npr.choice(len(neg2), size=600000, replace=False)
-sum_ = len(neg_keep)
-for i in neg_keep:
-    line = neg2[i]
-    view_bar(cur_,sum_)
-    cur_ += 1
-    words = line.split()
-    image_file_name = '../48net/'+words[0]+'.jpg'
-    im = cv2.imread(image_file_name)
-    h,w,ch = im.shape
-    if h!=48 or w!=48:
-        im = cv2.resize(im,(48,48))
-    im = np.swapaxes(im, 0, 2)
-    im = (im - 127.5)/127.5
-    label    = 0
-    roi      = [-1,-1,-1,-1]
-    pts	     = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
-    cls_list.append([im,label,roi]) 
+import numpy.random as npr
 import cPickle as pickle
-fid = open("../48net/48/cls.imdb",'w')
-pickle.dump(cls_list, fid)
+import random
+
+size = 48
+net = str(size)
+pts_list = []
+scr_list = []
+    
+    
+def read_image(path):
+    im = cv2.imread(path)
+    try:
+        h,w,ch = im.shape
+    except:
+        print "%s does not exist" % path
+        return
+    if h!=48 or w!=48:
+        im = cv2.resize(im,(48,48))
+    im = np.swapaxes(im, 0, 2)
+    im = (im - 127.5)/127.5
+    
+    pts = [ float(words[1])/w,float(words[2])/h,
+            float(words[3])/w,float(words[4])/h,
+            float(words[5])/w,float(words[6])/h,
+            float(words[7])/w,float(words[8])/h,
+            float(words[9])/w,float(words[10])/h ]
+    scr = [ float(words[11]),float(words[12]),float(words[13]),float(words[14]),float(words[15]) ]
+    pts_list.append([im,pts])
+    scr_list.append([im,scr])
+
+print "Reading CelebA faces..."
+with open('/disk2/zjh/RefineDet/data/face-rd-18-t0/celebA_align_transform_landmarks_scores.txt', 'r') as f:
+    landmarks = f.readlines()
+cur_ = 0
+sum_ = len(landmarks)
+for line in landmarks:
+    cur_  += 1
+    if cur_ % 1000 == 0:
+        print cur_
+
+    words = line.split()
+    image_file_path = '/disk2/zjh/RefineDet/data/face-rd-18-t0/celebA_face/'+words[0]
+
+    read_image(image_file_path)
+print "CelebA face number: %d" % cur_
+
+print "Reading 83k faces..."
+with open('/disk2/zjh/RefineDet/data/face-rd-18-t0/83k_transform_landmarks_scores.txt', 'r') as f:
+    landmarks = f.readlines()
+cur_ = 0
+sum_ = len(landmarks)
+for line in landmarks:
+    cur_  += 1
+    if cur_ % 1000 == 0:
+        print cur_
+
+    words = line.split()
+    image_file_path = '/disk2/zjh/RefineDet/data/face-rd-18-t0/83k_face/'+words[0]
+
+    read_image(image_file_path)
+print "83k face number: %d" % cur_
+
+total = len(pts_list)
+l1 = int( 0.05 * total )
+l2 = int( 0.1 * total )
+
+random.shuffle(pts_list)
+random.shuffle(scr_list)
+
+fid = open("../48net/48/pts_dev.imdb",'w')
+pickle.dump(pts_list[:l1], fid)
+fid.close()
+fid = open("../48net/48/scr_dev.imdb",'w')
+pickle.dump(scr_list[:l1], fid)
 fid.close()
 
-roi_list = []
-print '\n'+'part-48'
-cur_ = 0
-part_keep = npr.choice(len(part2), size=300000, replace=False)
-sum_ = len(part_keep)
-for i in part_keep:
-    line = part2[i]
-    view_bar(cur_,sum_)
-    cur_ += 1
-    words = line.split()
-    image_file_name = '../48net/'+words[0]+'.jpg'
-    im = cv2.imread(image_file_name)
-    h,w,ch = im.shape
-    if h!=48 or w!=48:
-        im = cv2.resize(im,(48,48))
-    im = np.swapaxes(im, 0, 2)
-    im -= 128
-    label    = -1
-    roi      = [float(words[2]),float(words[3]),float(words[4]),float(words[5])]
-    pts	     = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
-    roi_list.append([im,label,roi])
-print '\n'+'positive-48'
-cur_ = 0
-sum_ = len(pos2)
-for line in pos2:
-    view_bar(cur_,sum_)
-    cur_ += 1
-    words = line.split()
-    image_file_name = '../48net/'+words[0]+'.jpg'
-    im = cv2.imread(image_file_name)
-    h,w,ch = im.shape
-    if h!=48 or w!=48:
-        im = cv2.resize(im,(48,48))
-    im = np.swapaxes(im, 0, 2)
-    im = (im - 127.5)/127.5
-    label    = -1
-    roi      = [float(words[2]),float(words[3]),float(words[4]),float(words[5])]
-    pts	     = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
-    roi_list.append([im,label,roi])
-import cPickle as pickle
-fid = open("../48net/48/roi.imdb",'w')
-pickle.dump(roi_list, fid)
+fid = open("../48net/48/pts_test.imdb",'w')
+pickle.dump(pts_list[l1:l2], fid)
+fid.close()
+fid = open("../48net/48/scr_test.imdb",'w')
+pickle.dump(scr_list[l1:l2], fid)
+fid.close()
+
+fid = open("../48net/48/pts_train.imdb",'w')
+pickle.dump(pts_list[l2:], fid)
+fid.close()
+fid = open("../48net/48/scr_train.imdb",'w')
+pickle.dump(scr_list[l2:], fid)
 fid.close()
